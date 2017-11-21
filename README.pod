@@ -10,6 +10,11 @@ Argon - Distributed processing focused on painless integration
 
 version 0.01
 
+=head1 DESCRIPTION
+
+This is an in-progress re-write of L<Argon> now that L<Coro> once again works
+with recent versions of perl.
+
 =head1 AUTHOR
 
 Jeff Ober <sysread@fastmail.fm>

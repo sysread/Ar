@@ -80,3 +80,68 @@ sub thaw {
 }
 
 1;
+
+=head1 SYNOPSIS
+
+  use Argon::Msg;
+
+  my $msg = Argon::Msg->new(
+    cmd  => 'done',
+    data => {some => 'data'},
+  );
+
+  my $line = $msg->encode;
+
+  my $decoded = Argon::Msg->decode($line);
+
+=head1 DESCRIPTION
+
+This class encodes and decodes the line protocol used for communication between
+L<Argon> nodes.
+
+=head1 METHODS
+
+=head2 new
+
+=over
+
+=item id
+
+A unique identifier for this message. Unless specified, a new UUID is provided
+automatically. An id should only be reused when replying to a message. See
+L</reply>.
+
+=item cmd
+
+A command verb (hopefully one that is expected by whatever is listening on the
+other end of the line).
+
+=item data
+
+A scalar value or reference to be serialized and transmitted as the payload of
+this message.
+
+=back
+
+=head2 encode
+
+Serializes and encrypts the message into a single line suitable for
+transmission to another Argon entity.
+
+  $conn->send($msg->encode);
+
+=head2 decode
+
+Decodes an encrypted line (provided by L</encode> or read off the wire) and
+returns a new C<Argon::Msg> instance. This is a class method.
+
+  my $msg = Argon::Msg->decode(<STDIN>);
+
+=head2 reply
+
+Updates any number of instance attributes in place and returns the updated
+object.
+
+  my $reply = $msg->reply(cmd => 'fail', data => 'some error message');
+
+=cut

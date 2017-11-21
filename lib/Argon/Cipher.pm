@@ -32,10 +32,6 @@ sub decrypt { cipher->decrypt_hex($_[0]) }
 
 1;
 
-=head1 NAME
-
-Argon::Cipher - encryption routines used for communication across Argon nodes
-
 =head1 SYNOPSIS
 
   use Argon::Cipher; # exports encrypt(), decrypt()

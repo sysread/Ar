@@ -6,6 +6,7 @@ requires 'Time::HiRes'          => '0';
 
 requires 'common::sense'        => '0';
 requires 'AnyEvent'             => '7.14';
+requires 'Class::XSAccessor'    => '0';
 requires 'Coro'                 => '6.514';
 requires 'Crypt::CBC'           => '0';
 requires 'Crypt::Rijndael'      => '0';

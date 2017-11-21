@@ -1,6 +1,6 @@
 use Test2::Bundle::Extended;
-use Argon::Msg;
 use Argon::Cipher;
+use Argon::Msg;
 
 Argon::Cipher::set_key('testing');
 
@@ -29,6 +29,12 @@ subtest 'basics' => sub{
   is $msg2->{data}, U, 'data undef after setter is called';
   isnt $msg2->blob, $blob, 'blob updated when data is set';
   is $msg2->data, 'foo', 'data updated from new blob';
+
+  # reply method
+  my $reply = $msg->reply(cmd => 'done', data => 'qwerty');
+  is $reply->id, $msg->id, 'reply: id matches';
+  is $reply->cmd, 'done', 'reply: override cmd';
+  is $reply->data, 'qwerty', 'reply: override data';
 };
 
 done_testing;

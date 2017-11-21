@@ -4,7 +4,6 @@ package Argon::Conn;
 use common::sense;
 
 use Moo;
-use AnyEvent::Log;
 use Argon::Msg;
 
 has handle => (
@@ -20,6 +19,7 @@ has handle => (
 
 sub addr {
   my $self = shift;
+  $self->host eq 'unix/' && return 'unix';
   join ':', $self->host, $self->port;
 }
 
@@ -36,3 +36,49 @@ sub recv {
 }
 
 1;
+
+=head1 SYNOPSIS
+
+  use Argon::Conn;
+  use Argon::Msg;
+
+  my $conn = Argon::Conn->new(handle => $coro_handle);
+
+  $conn->send(Argon::Msg->new(...));
+
+  my $reply = $conn->recv;
+
+  $conn->shutdown;
+  $conn->close;
+
+=head1 METHODS
+
+=head2 send
+
+Encodes and sends an L<Argon::Msg> on the socket.
+
+=head2 recv
+
+Reads and returns the next L<Argon::Msg> from the socket.
+
+=head2 host
+
+Returns the remote host (C<peerhost>);
+
+=head2 port
+
+Returns the remote port (C<peerport>);
+
+=head2 addr
+
+Returns the remote address in the form, C<host:port>.
+
+=head2 close
+
+Close the socket.
+
+=head2 shutdown
+
+Shuts down the socket, signaling the other end that no more data will be sent.
+
+=cut
