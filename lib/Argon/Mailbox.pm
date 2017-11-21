@@ -49,6 +49,7 @@ sub join {
 # Send a message, then cede until its reply (with a matching id) is received.
 sub get_reply {
   my ($self, $msg) = @_;
+  return unless $self->active;
   $self->pending->{$msg->id} = rouse_cb;
   $self->send($msg);
   rouse_wait($self->pending->{$msg->id});
@@ -99,3 +100,38 @@ sub writer_loop {
 }
 
 1;
+
+=head1 SYNOPSIS
+
+  my $mailbox = Argon::Mailbox->new(conn => Argon::Conn->new(...));
+  my $reply   = $mailbox->get_reply($msg);
+
+  $mailbox->shutdown;
+  $mailbox->join;
+
+=head1 METHODS
+
+=head2 new
+
+Expects a single attribute, C<conn>, an L<Argon::Conn>.
+
+=head2 get_reply
+
+Sends an L<Argon::Msg> and returns the reply, linked by C<id>. Any number of
+messages may be sent and received in the meantime; this method will block until
+the reply linked to the sent message is received.
+
+=head2 num_pending
+
+Returns the number of sent messages which have not yet received a reply.
+
+=head2 shutdown
+
+Causes the reader and writer threads to self-terminate. After calling this
+method, the mailbox will no longer send or receive messages.
+
+=head2 join
+
+Blocks until both the reader and writer threads have completed.
+
+=cut
