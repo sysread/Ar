@@ -62,3 +62,58 @@ sub client {
 }
 
 1;
+
+=head1 SYNOPSIS
+
+  my $service = Argon::Server->new(
+    host  => 'localhost',
+    port  => 8080, # leave blank for an OS-assigned port
+    qsize => 256,  # accept queue size
+  );
+
+  $service->start;
+
+  while (my $client = $service->client) {
+    $client->send(Argon::Msg->new(cmd => 'fail', data => 'Go away!'));
+  }
+
+=head1 DESCRIPTION
+
+Sets up a listener socket on the specified host and port.
+
+=head1 METHODS
+
+=head2 new
+
+=over
+
+=item port
+
+The port on which to listen. Leave blank to request an open port assigned by
+the operating system and have the C<port> attribute updated after calling
+L</start>.
+
+=item host
+
+The host interface on which to listen. Leave blank to accept the operating
+system default and have the C<host> attribute updated after calling L</start>.
+
+=item qsize
+
+Explicitly sets the accept queue length. Leave blank to accept the OS default.
+The accept queue holds new connections waiting to be accepted (via a call to
+L</client>). If the number of incoming, unanswered, connections grows past the
+C<qsize>, new connections will be rejected by the OS.
+
+=back
+
+=head2 stop
+
+Stops the listener service. Any threads waiting on L</client> will be woken up
+and receive C<undef>.
+
+=head2 client
+
+Waits for and returns the next incoming client L<connection|Argon::Conn>.
+
+=cut
