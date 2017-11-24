@@ -3,8 +3,6 @@ package Argon::Node;
 
 #-------------------------------------------------------------------------------
 # TODO
-#   - Retain tasks after disconnect and attempt to redeliver on reconnect
-#   - Logarithmic back-off for reconnect
 #-------------------------------------------------------------------------------
 
 use common::sense;
@@ -12,13 +10,15 @@ use common::sense;
 use Moo;
 use AnyEvent::Log;
 use AnyEvent::Util;
-use Argon::Client;
-use Argon::Msg;
 use Argon::Pool;
 use Carp;
 use Coro;
 use Coro::AnyEvent;
 use Try::Catch;
+
+use Argon::Client;
+use Argon::Msg;
+use Argon::Util;
 
 # Process pool
 has limit   => (is => 'rw');
@@ -44,16 +44,19 @@ sub start {
   $self->pool(Argon::Pool->new(limit => $self->limit));
   $self->pool->start;
 
+  my $timer;
   until ($self->stopped) {
     # Connect to hub if necessary
     unless ($self->client) {
       if ($self->client($self->connect)) {
         AE::log info => 'Connected to hub';
+        undef $timer;
       }
       else {
         # Connection failed
         $self->clear_client;
-        Coro::AnyEvent::sleep 1;
+        $timer //= backoff_timer;
+        $timer->();
         next;
       }
     }

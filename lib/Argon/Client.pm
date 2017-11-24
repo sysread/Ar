@@ -11,16 +11,16 @@ use common::sense;
 use Moo;
 use Carp;
 use Coro;
-use Coro::AnyEvent;
 use Coro::Handle 'unblock';
 use AnyEvent::Socket 'tcp_connect';
 use AnyEvent::Log;
 use List::Util 'sum0';
 use POSIX 'round';
-use Time::HiRes qw(time sleep);
+use Time::HiRes qw(time);
 use Try::Catch;
 use Argon::Conn;
 use Argon::Mailbox;
+use Argon::Util;
 
 has host    => (is => 'ro', required => 1);
 has port    => (is => 'ro', required => 1);
@@ -77,20 +77,6 @@ sub close {
   AE::log debug => 'Connection closed';
 }
 
-sub backoff_timer {
-  my $count = 0;
-  my $intvl = 0.01;
-
-  sub {
-    if ($count == 0) {
-      ++$count;
-      return $intvl;
-    }
-
-    $intvl += log($count++) / log(10);
-  };
-}
-
 sub task {
   my $self = shift;
   my $msg  = Argon::Msg->new(cmd => 'pls', data => [@_]);
@@ -101,7 +87,7 @@ sub task {
   if ($reply->cmd eq 'fail') {
     if ($reply->data eq 'no available capacity') {
       $timer //= backoff_timer;
-      Coro::AnyEvent::sleep $timer->();
+      $timer->();
       goto RETRY;
     }
     else {

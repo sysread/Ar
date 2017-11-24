@@ -38,16 +38,6 @@ sub load {
 package Argon::Hub;
 # ABSTRACT: Handles incoming client tasks using a pool of Argon::Node workers
 
-#-------------------------------------------------------------------------------
-# TODO
-#   - when node disconnects, retain pending messages for a set period of time
-#     to allow the node a chance to reconnect
-#       - Argon::Msg expire time
-#       - Default to configurable value
-#       - Configurable cap on max value
-#   - monitor node ping
-#-------------------------------------------------------------------------------
-
 use common::sense;
 
 use Moo;
