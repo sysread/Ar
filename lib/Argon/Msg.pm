@@ -14,10 +14,15 @@ use MIME::Base64 qw(encode_base64 decode_base64);
 use Try::Catch;
 use Argon::Cipher;
 
+extends 'Exporter';
+our @EXPORT = qw(msg);
+
 has id   => (is => 'ro', default => \&next_id);
 has cmd  => (is => 'rw');
 has data => (is => 'rw');
 has blob => (is => 'rw');
+
+sub msg { Argon::Msg->new(@_) }
 
 sub reply {
   my ($self, %update) = @_;

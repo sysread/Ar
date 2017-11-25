@@ -11,8 +11,6 @@ use common::sense;
 use Moo;
 use Carp;
 use Coro;
-use Coro::Handle 'unblock';
-use AnyEvent::Socket 'tcp_connect';
 use AnyEvent::Log;
 use List::Util 'sum0';
 use POSIX 'round';
@@ -25,33 +23,23 @@ use Argon::Util;
 has host    => (is => 'ro', required => 1);
 has port    => (is => 'ro', required => 1);
 has addr    => (is => 'rw');
-has guard   => (is => 'rw', clearer => 1);
-has conn    => (is => 'rw', clearer => 1);
+has conn    => (is => 'rw', clearer => 1, handles => [qw(is_connected)]);
 has mailbox => (is => 'rw', clearer => 1, handles => [qw(send recv get_reply)]);
 
 before [qw(get_reply send recv latency)]
-  => sub{ croak 'not connected' unless $_[0]->connected };
-
-sub connected {
-  my $self = shift;
-  return defined $self->guard;
-}
+  => sub{ croak 'not connected' unless $_[0]->is_connected };
 
 sub connect {
   my $self = shift;
-  AE::log debug => 'Connecting to %s:%d', $self->host, $self->port;
+  my $conn = Argon::Conn->open($self->host, $self->port);
 
-  my $guard = tcp_connect($self->host, $self->port, rouse_cb);
-  my ($fh)  = rouse_wait;
-
-  unless ($fh) {
+  unless ($conn) {
     AE::log info => 'Connection failed: %s', $!;
     return;
   }
 
-  $self->guard($guard);
   $self->addr(join ':', $self->host, $self->port);
-  $self->conn(Argon::Conn->new(handle => unblock($fh)));
+  $self->conn($conn);
   $self->mailbox(Argon::Mailbox->new(conn => $self->conn));
 
   AE::log debug => 'Connection established';
@@ -60,7 +48,7 @@ sub connect {
 
 sub close {
   my $self = shift;
-  return unless $self->connected;
+  return unless $self->is_connected;
 
   $self->mailbox->shutdown;
 
@@ -71,7 +59,6 @@ sub close {
     # Not a problem if this fails - it likely means the handle is already closed
   };
 
-  $self->clear_guard;
   $self->clear_conn;
   $self->clear_mailbox;
   AE::log debug => 'Connection closed';

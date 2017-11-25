@@ -4,12 +4,17 @@ package Argon::Conn;
 use common::sense;
 
 use Moo;
+use Coro;
+use Coro::Handle 'unblock';
+use AnyEvent::Log;
+use AnyEvent::Socket 'tcp_connect';
 use Argon::Msg;
 
 has handle => (
-  is => 'ro',
+  is       => 'ro',
   required => 1,
-  handles => {
+  clearer  => 1,
+  handles  => {
     host     => 'peerhost',
     port     => 'peerport',
     close    => 'close',
@@ -17,10 +22,19 @@ has handle => (
   },
 );
 
+sub is_connected { defined $_[0]->handle }
+
+sub open {
+  my ($class, $host, $port) = @_;
+  AE::log debug => 'Connecting to %s:%d', $host, $port;
+  my $guard = tcp_connect($host, $port, rouse_cb);
+  my ($fh)  = rouse_wait or return;
+  return $class->new(handle => unblock($fh));
+}
+
 sub addr {
   my $self = shift;
-  $self->host eq 'unix/' && return 'unix';
-  join ':', $self->host, $self->port;
+  $self->host eq 'unix/' ? 'unix' : join(':', $self->host, $self->port);
 }
 
 sub send {
@@ -30,7 +44,13 @@ sub send {
 
 sub recv {
   my $self = shift;
-  my $line = $self->handle->readline("\n") or return;
+  my $line = $self->handle->readline("\n");
+
+  unless ($line) {
+    $self->clear_handle;
+    return;
+  }
+
   chomp $line;
   Argon::Msg->decode($line);
 }
