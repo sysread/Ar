@@ -2,13 +2,29 @@ package Argon::Util;
 # ABSTRACT: Utility functions shared by Argon modules
 
 use common::sense;
+
+use Coro;
 use Coro::AnyEvent;
 
 use parent 'Exporter';
+
 our @EXPORT = qw(
+  timeout
   backoff_interval
   backoff_timer
 );
+
+sub timeout {
+  my ($timeout, $code) = @_;
+  my $check = async{ $code->() };
+  my $timer = async{
+    Coro::AnyEvent::sleep $timeout;
+    $check->throw('timeout');
+  };
+  my $result = $check->join;
+  $timer->safe_cancel;
+  return $result;
+}
 
 sub backoff_interval {
   my $intvl = shift // 1;
