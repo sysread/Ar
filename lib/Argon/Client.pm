@@ -23,11 +23,18 @@ use Argon::Util;
 has host    => (is => 'ro', required => 1);
 has port    => (is => 'ro', required => 1);
 has addr    => (is => 'rw');
-has conn    => (is => 'rw', clearer => 1, handles => [qw(is_connected)]);
+has conn    => (is => 'rw', clearer => 1);
 has mailbox => (is => 'rw', clearer => 1, handles => [qw(send recv get_reply)]);
+
+sub BUILD {
+  my $self = shift;
+  $self->addr(join ':', $self->host, $self->port);
+}
 
 before [qw(get_reply send recv latency)]
   => sub{ croak 'not connected' unless $_[0]->is_connected };
+
+sub is_connected { defined $_[0]->conn && $_[0]->conn->is_connected }
 
 sub connect {
   my $self = shift;
@@ -38,7 +45,6 @@ sub connect {
     return;
   }
 
-  $self->addr(join ':', $self->host, $self->port);
   $self->conn($conn);
   $self->mailbox(Argon::Mailbox->new(conn => $self->conn));
 

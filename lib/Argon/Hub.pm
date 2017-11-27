@@ -58,15 +58,16 @@ has average  => (is => 'rw', default => sub{ 0 });  # rolling average of task pr
 has history  => (is => 'rw', default => sub{ [] }); # historical times of tasks processed
 
 # Initialize the hub
-after start => sub {
+sub run {
   my $self = shift;
+  $self->start unless $self->started;
 
   # New client connection
   while (my $client = $self->next_connection) {
     # Start client observer thread to service client requests
     async_pool(\&client_observer, $self, $client);
   }
-};
+}
 
 sub add_capacity {
   my ($self, $amount) = @_;

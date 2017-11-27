@@ -32,7 +32,7 @@ has client  => (is => 'rw', clearer  => 1, handles => [qw(send recv)]);
 # State
 has stopped => (is => 'rw', default => sub{ 1 });
 
-sub start {
+sub run {
   my $self = shift;
   $self->stopped(0);
 

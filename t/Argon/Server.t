@@ -3,6 +3,7 @@ use Moo;
 with 'Argon::Server';
 1;
 
+
 package main;
 use Test2::Bundle::Extended;
 use Coro;
