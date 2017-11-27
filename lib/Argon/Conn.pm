@@ -22,6 +22,8 @@ has handle => (
   },
 );
 
+after close => sub{ $_[0]->clear_handle };
+
 sub is_connected { defined $_[0]->handle }
 
 sub open {
@@ -47,7 +49,7 @@ sub recv {
   my $line = $self->handle->readline("\n");
 
   unless ($line) {
-    $self->clear_handle;
+    $self->close;
     return;
   }
 

@@ -9,7 +9,7 @@ use common::sense;
 
 use Moo;
 use AnyEvent::Log;
-use AnyEvent::Util;
+use AnyEvent::Util qw();
 use Argon::Pool;
 use Carp;
 use Coro;

@@ -48,7 +48,7 @@ use Coro;
 use List::Util qw(reduce sum0 min);
 use Time::HiRes qw(time);
 
-extends 'Argon::Server';
+with 'Argon::Server';
 
 has backlog  => (is => 'ro', default => sub{ 30 }); # seconds of backlog to allow (est)
 has capacity => (is => 'rw', default => sub{ 0 });  # tracks total worker processes across registered nodes
@@ -62,7 +62,7 @@ after start => sub {
   my $self = shift;
 
   # New client connection
-  while (my $client = $self->client) {
+  while (my $client = $self->next_connection) {
     # Start client observer thread to service client requests
     async_pool(\&client_observer, $self, $client);
   }
