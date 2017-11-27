@@ -1,11 +1,6 @@
 package Argon::Client;
 # ABSTRACT: A connection to an Argon::Hub
 
-#-------------------------------------------------------------------------------
-# TODO
-#   - Stuff
-#-------------------------------------------------------------------------------
-
 use common::sense;
 
 use Moo;
@@ -13,7 +8,7 @@ use Carp;
 use Coro;
 use AnyEvent::Log;
 use List::Util 'sum0';
-use POSIX 'round';
+use POSIX 'ceil';
 use Time::HiRes qw(time);
 use Try::Catch;
 use Argon::Conn;
@@ -104,7 +99,7 @@ sub ping {
   my $start = time;
   $_[0]->task(sub{});
   my $taken = time - $start;
-  round(1000 * $taken);
+  ceil(1000 * $taken);
 }
 
 # Average ping time for a single client
@@ -119,7 +114,7 @@ sub latency {
     push @results, $self->ping;
   }
 
-  round(sum0(@results) / scalar(@results));
+  ceil(sum0(@results) / scalar(@results));
 }
 
 1;
