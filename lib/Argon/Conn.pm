@@ -41,11 +41,13 @@ sub addr {
 
 sub send {
   my ($self, $msg) = @_;
+  return unless $self->is_connected;
   $self->handle->print($msg->encode, "\n");
 }
 
 sub recv {
   my $self = shift;
+  return unless $self->is_connected;
   my $line = $self->handle->readline("\n");
 
   unless ($line) {
