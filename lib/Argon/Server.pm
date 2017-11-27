@@ -50,7 +50,7 @@ sub start {
   my ($fh, $host, $port) = rouse_wait;
   $self->host($host);
   $self->port($port);
-  $self->addr(normalize_address("$host:$port"));
+  $self->addr("$host:$port");
   $self->handle(unblock $fh);
   AE::log info => 'Listener started on %s', $self->addr;
 }
