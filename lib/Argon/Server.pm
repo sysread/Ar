@@ -72,15 +72,26 @@ sub next_connection {
 
 =head1 SYNOPSIS
 
-  my $service = Argon::Server->new(
+  # Class implementing Argon::Server
+  package MyServer;
+
+  use Moo;
+  with 'Argon::Server';
+
+  1;
+
+  # Create service
+  my $service = MyServer->new(
     host  => 'localhost',
     port  => 8080, # leave blank for an OS-assigned port
     qsize => 256,  # accept queue size
   );
 
+  # Start the listener
   $service->start;
 
-  while (my $client = $service->client) {
+  # Service clients
+  while (my $client = $service->next_connection) {
     $client->send(Argon::Msg->new(cmd => 'fail', data => 'Go away!'));
   }
 
@@ -109,17 +120,17 @@ system default and have the C<host> attribute updated after calling L</start>.
 
 Explicitly sets the accept queue length. Leave blank to accept the OS default.
 The accept queue holds new connections waiting to be accepted (via a call to
-L</client>). If the number of incoming, unanswered, connections grows past the
-C<qsize>, new connections will be rejected by the OS.
+L</next_connection>). If the number of incoming, unanswered, connections grows
+past the C<qsize>, new connections will be rejected by the OS.
 
 =back
 
 =head2 stop
 
-Stops the listener service. Any threads waiting on L</client> will be woken up
-and receive C<undef>.
+Stops the listener service. Any threads waiting on L</next_connection> will be
+woken up and receive C<undef>.
 
-=head2 client
+=head2 next_connection
 
 Waits for and returns the next incoming client L<connection|Argon::Conn>.
 
