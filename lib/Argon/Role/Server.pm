@@ -1,4 +1,4 @@
-package Argon::Server;
+package Argon::Role::Server;
 # ABSTRACT: A listener socket service
 
 use common::sense;

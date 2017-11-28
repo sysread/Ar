@@ -1,35 +1,15 @@
 package Argon::Hub::Node;
-# ABSTRACT: A managed connection from a remote note
-
+use common::sense;
 use Moo;
-use Argon::Mailbox;
 
-has conn => (is => 'ro', required => 1);
-has cap  => (is => 'ro', required => 1);
+extends 'Argon::Mailbox';
 
-has mail => (
-  is       => 'ro',
-  required => 1,
-  handles  => {
-    join     => 'join',
-    shutdown => 'shutdown',
-    process  => 'get_reply',
-    send     => 'send',
-    recv     => 'recv',
-    pending  => 'num_pending',
-  }
-);
-
-sub BUILDARGS {
-  my ($class, %param) = @_;
-  $param{mail} = Argon::Mailbox->new(conn => $param{conn});
-  return \%param;
-}
+has capacity => (is => 'ro', required => 1);
 
 sub load {
   my $self = shift;
-  my $load = $self->pending or return 0;
-  return $self->cap / $load;
+  my $load = $self->num_pending or return 0;
+  return $self->capacity / $load;
 }
 
 1;
@@ -43,12 +23,11 @@ use common::sense;
 use Moo;
 use AnyEvent::Log;
 use Argon::Msg;
-use Argon::Server;
 use Coro;
 use List::Util qw(reduce sum0 min);
 use Time::HiRes qw(time);
 
-with 'Argon::Server';
+with 'Argon::Role::Server';
 
 has backlog  => (is => 'ro', default => sub{ 30 }); # seconds of backlog to allow (est)
 has capacity => (is => 'rw', default => sub{ 0 });  # tracks total worker processes across registered nodes
@@ -89,6 +68,7 @@ sub client_observer {
 
   while (my $msg = $client->recv) {
     AE::log trace => 'Received message %s: %s', $msg->cmd, $msg->id;
+
     # Client: pls do this task?!
     if ($msg->cmd eq 'pls') {
       async_pool {
@@ -115,7 +95,7 @@ sub client_observer {
 sub process {
   my ($self, $msg) = @_;
   if ($self->has_capacity && (my $node = $self->select_node)) {
-    return $self->tracked(sub{ $self->nodes->{$node}->process($msg) });
+    return $self->tracked(sub{ $self->nodes->{$node}->get_reply($msg) });
   }
   # No capacity to service requests
   else {
@@ -133,12 +113,12 @@ sub node_observer {
   # Start a mailbox for the node to track messages in and out
   my $node = Argon::Hub::Node->new(
     conn => $conn,
-    cap  => $reg->data,
+    capacity => $reg->data,
   );
 
-  $self->nodes->{$addr} = $node;   # Stow the node
-  $self->add_capacity($node->cap); # Add node's capacity to our own
-  $reg->cmd('ack');                # Reply with acknowledgement
+  $self->nodes->{$addr} = $node;        # Stow the node
+  $self->add_capacity($node->capacity); # Add node's capacity to our own
+  $reg->cmd('ack');                     # Reply with acknowledgement
   $node->send($reg);
 
   # Wait until the mailbox signals that it has exited

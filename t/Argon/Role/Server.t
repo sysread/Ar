@@ -1,6 +1,6 @@
 package TestServer;
 use Moo;
-with 'Argon::Server';
+with 'Argon::Role::Server';
 1;
 
 

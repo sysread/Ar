@@ -1,6 +1,12 @@
 package Argon;
 # ABSTRACT: Distributed processing focused on painless integration
 
+#-------------------------------------------------------------------------------
+# TODO
+#   -class tasks
+#   -priorities
+#-------------------------------------------------------------------------------
+
 use common::sense;
 
 1;
