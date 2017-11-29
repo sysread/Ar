@@ -6,23 +6,24 @@ use common::sense;
 use Moo;
 use AnyEvent::Log;
 use AnyEvent::Util qw();
+use Argon::Pool;
 use Carp;
 use Coro;
 use Coro::AnyEvent;
-use Ion;
+use Try::Catch;
 
+use Argon::Client;
 use Argon::Msg;
-use Argon::Pool;
 use Argon::Util;
 
 # Process pool
-has limit => (is => 'rw');
-has pool  => (is => 'rw', clearer => 1);
+has limit   => (is => 'rw');
+has pool    => (is => 'rw', clearer => 1);
 
 # Manager connection
-has port  => (is => 'ro', required => 1);
-has host  => (is => 'ro', required => 1);
-has conn  => (is => 'rw', clearer  => 1);
+has port    => (is => 'ro', required => 1);
+has host    => (is => 'ro', required => 1);
+has client  => (is => 'rw', clearer  => 1, handles => [qw(send recv)]);
 
 # State
 has stopped => (is => 'rw', default => sub{ 1 });
@@ -42,29 +43,35 @@ sub run {
   my $timer;
   until ($self->stopped) {
     # Connect to hub if necessary
-    unless ($self->conn) {
-      if ($self->conn($self->connect)) {
+    unless ($self->client) {
+      if ($self->client($self->connect)) {
         AE::log info => 'Connected to hub';
         undef $timer;
       }
       else {
         # Connection failed
-        $self->clear_conn;
+        $self->clear_client;
         $timer //= backoff_timer;
         $timer->();
         next;
       }
     }
 
-    my $msg = $self->recv
-      or next;
+    # Retrieve next message from hub
+    my $msg = $self->recv;
+
+    # Hub was disconnected
+    unless ($msg) {
+      $self->clear_client;
+      next;
+    }
 
     # Send to pool and add callback to return the result
     async_pool {
       my ($self, $msg) = @_;
       my $reply = $self->pool->process($msg);
-      # Connection might have been lost before callback is called
-      $self->conn->($reply->encode) if $self->conn;
+      # Client might have disconnected before callback is called
+      $self->send($reply) if $self->client;
     } $self, $msg;
   }
 }
@@ -78,44 +85,36 @@ sub stop {
   $self->pool->stop;
 
   # Close connection to the hub
-  $self->conn->(0) if $self->conn;
+  $self->client->close if $self->client;
 
   # Clean up
   $self->clear_pool;
-  $self->clear_conn;
+  $self->clear_client;
 }
 
 sub connect {
   my $self = shift;
   AE::log debug => 'Establishing connection to hub';
-  $self->clear_conn;
+  $self->clear_client;
 
-  my $conn = eval{ Connect $self->host, $self->port };
+  # Connect to hub
+  my $client = Argon::Client->new(host => $self->host, port => $self->port);
+  $client->connect
+    or return;
 
-  if ($@) {
-    AE::log debug => $@;
+  # Register capacity with hub
+  $client->send(Argon::Msg->new(cmd => 'reg', data => $AnyEvent::Util::MAX_FORKS));
+
+  # Wait for acknowledgement
+  my $reply = $client->recv
+    or return;
+
+  if ($reply->cmd ne 'ack') {
+    AE::log warn => 'server replied with %s: %s', $reply->cmd, $reply->data;
     return;
   }
 
-  $conn->(msg(cmd => 'reg', data => $AnyEvent::Util::MAX_FORKS)->encode);
-  my $reply = <$conn>; # ack
-  return $conn;
-}
-
-sub recv {
-  my $self = shift;
-
-  # Retrieve next message from hub
-  my $conn = $self->conn;
-  my $line = <$conn>;
-
-  # Disconnected
-  unless (defined $line) {
-    $self->clear_conn;
-    return;
-  }
-
-  return Argon::Msg->decode($line);
+  return $client;
 }
 
 1;

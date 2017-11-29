@@ -12,7 +12,6 @@ requires 'Crypt::CBC'           => '0';
 requires 'Crypt::Rijndael'      => '0';
 requires 'Data::Dump::Streamer' => '0';
 requires 'Data::UUID::MT'       => '0';
-requires 'Ion'                  => '0.02';
 requires 'Moo'                  => '0';
 requires 'Path::Tiny'           => '0';
 requires 'Try::Catch'           => '0';
