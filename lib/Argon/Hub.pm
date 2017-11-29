@@ -1,20 +1,3 @@
-package Argon::Hub::Node;
-use common::sense;
-use Moo;
-
-extends 'Argon::Mailbox';
-
-has capacity => (is => 'ro', required => 1);
-
-sub load {
-  my $self = shift;
-  my $load = $self->num_pending or return 0;
-  return $self->capacity / $load;
-}
-
-1;
-
-
 package Argon::Hub;
 # ABSTRACT: Handles incoming client tasks using a pool of Argon::Node workers
 
@@ -24,7 +7,7 @@ use Moo;
 use AnyEvent::Log;
 use Argon::Msg;
 use Coro;
-use List::Util qw(reduce sum0 min);
+use List::Util qw(reduce sum0);
 use Time::HiRes qw(time);
 
 with 'Argon::Role::Server';
@@ -48,21 +31,6 @@ sub run {
   }
 }
 
-sub add_capacity {
-  my ($self, $amount) = @_;
-  $self->capacity($self->capacity + $amount);
-  AE::log info => 'Capacity increased to %d', $self->capacity;
-}
-
-sub remove_capacity {
-  my ($self, $amount) = @_;
-  $self->capacity($self->capacity - $amount);
-  AE::log info => 'Capacity decreased to %d', $self->capacity;
-}
-
-sub inc_load { ++$_[0]->{load} }
-sub dec_load { --$_[0]->{load} }
-
 sub client_observer {
   my ($self, $client) = @_;
 
@@ -73,10 +41,20 @@ sub client_observer {
     if ($msg->cmd eq 'pls') {
       async_pool {
         my ($self, $client, $msg) = @_;
-        # Process returns undef when a node disconnects before the task can be
-        # sent. Loop until some node sends a reply.
-        my $reply; do{ $reply = $self->process($msg) } until $reply;
+
+        my $reply;
+        while (!defined $reply) {
+          if (!$self->has_capacity) {
+            $reply = $msg->Reply(cmd => 'fail', data => 'no available capacity');
+            last;
+          }
+
+          my $node = $self->select_node;
+          $reply = $self->tracked(sub{ $self->nodes->{$node}->get_reply($msg) });
+        }
+
         $client->send($reply);
+
       } $self, $client, $msg;
     }
     # Node registration
@@ -89,18 +67,6 @@ sub client_observer {
       # necessary or appropriate.
       last;
     }
-  }
-}
-
-sub process {
-  my ($self, $msg) = @_;
-  if ($self->has_capacity && (my $node = $self->select_node)) {
-    return $self->tracked(sub{ $self->nodes->{$node}->get_reply($msg) });
-  }
-  # No capacity to service requests
-  else {
-    AE::log trace => '%s: no capacity', $msg->id;
-    return $msg->reply(cmd => 'fail', data => 'no available capacity');
   }
 }
 
@@ -131,16 +97,31 @@ sub node_observer {
   delete $self->nodes->{$addr};
 }
 
-sub select_node {
-  my $self = shift;
-  reduce{ $self->nodes->{$a}->load < $self->nodes->{$b}->load ? $a : $b }
-    keys %{$self->nodes};
-}
-
 sub has_capacity {
   my $self = shift;
   return 1 if $self->load < $self->capacity;
   return ($self->average * ($self->load - $self->capacity)) <= $self->backlog;
+}
+
+sub add_capacity {
+  my ($self, $amount) = @_;
+  $self->capacity($self->capacity + $amount);
+  AE::log info => 'Capacity increased to %d', $self->capacity;
+}
+
+sub remove_capacity {
+  my ($self, $amount) = @_;
+  $self->capacity($self->capacity - $amount);
+  AE::log info => 'Capacity decreased to %d', $self->capacity;
+}
+
+sub inc_load { ++$_[0]->{load} }
+sub dec_load { --$_[0]->{load} }
+
+sub select_node {
+  my $self = shift;
+  reduce{ $self->nodes->{$a}->load < $self->nodes->{$b}->load ? $a : $b }
+    keys %{$self->nodes};
 }
 
 sub tracked {
@@ -154,6 +135,23 @@ sub tracked {
   $self->average($avg);                                         # update average task processing time
   $self->dec_load;                                              # note decrease in number of tasks pending
   $result;
+}
+
+1;
+
+
+package Argon::Hub::Node;
+use common::sense;
+use Moo;
+
+extends 'Argon::Mailbox';
+
+has capacity => (is => 'ro', required => 1);
+
+sub load {
+  my $self = shift;
+  my $load = $self->num_pending or return 0;
+  return $self->capacity / $load;
 }
 
 1;
